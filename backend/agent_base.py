@@ -1,7 +1,7 @@
 import os
-from openai import AsyncOpenAI
-from models import AgentRequest, AgentResponse
 import json
+from models import AgentRequest, AgentResponse
+import litellm
 
 class BaseAgent:
     """Base class for all Specialized Web and YouTube Management Agents."""
@@ -9,38 +9,24 @@ class BaseAgent:
     def __init__(self, name: str, system_prompt: str):
         self.name = name
         self.system_prompt = system_prompt
-        # OpenRouter Integration
-        self.api_key = os.getenv("OPENROUTER_API_KEY", "")
         
-        # We will use OpenRouter via the official OpenAI python package
-        # OpenRouter's base URL is https://openrouter.ai/api/v1
-        if self.api_key:
-            self.client = AsyncOpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=self.api_key,
-            )
-            # Default to a high tier price/performance model unless overridden
-            self.model_name = "anthropic/claude-3-haiku" 
+        # Determine the best model based on configured API keys for maximum flexibility
+        if os.getenv("OPENROUTER_API_KEY"):
+            self.default_model = "openrouter/anthropic/claude-3-haiku"
+        elif os.getenv("ANTHROPIC_API_KEY"):
+            self.default_model = "claude-3-haiku-20240307"
+        elif os.getenv("OPENAI_API_KEY"):
+            self.default_model = "gpt-4o-mini"
+        elif os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+            self.default_model = "gemini/gemini-1.5-pro"
         else:
-            # Fallback to local Ollama ONLY if OpenRouter key is missing
-            self.client = AsyncOpenAI(
-                base_url="http://localhost:11434/v1",
-                api_key="ollama" 
-            )
-            self.model_name = "llama3"
+            # Drop back to local Ollama if no keys are provided
+            self.default_model = "ollama/llama3"
 
     async def process(self, request: AgentRequest) -> AgentResponse:
         """
         Process user input and application context to generate an agent-specific response.
-        This provides a default implementation that can be overridden by subclasses.
         """
-        if not self.api_key and self.model_name != "llama3":
-           return AgentResponse(
-               agent_name=self.name, 
-               content="OPENROUTER_API_KEY is not configured.",
-               confidence=0.0
-           )
-
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": request.user_input}
@@ -51,10 +37,17 @@ class BaseAgent:
             messages.insert(1, {"role": "system", "content": f"Context: {json.dumps(request.context)}"})
 
         try:
-            completion = await self.client.chat.completions.create(
-                model=self.model_name,
+            # Subclasses can override self.model_name for specific high-performance needs
+            model_to_use = getattr(self, "model_name", self.default_model)
+            
+            # Setup specific routing for local ollama
+            api_base = "http://localhost:11434" if model_to_use.startswith("ollama/") else None
+            
+            completion = await litellm.acompletion(
+                model=model_to_use,
                 messages=messages,
                 temperature=0.7,
+                api_base=api_base
             )
             
             return AgentResponse(

@@ -10,7 +10,14 @@ class ResearchAgent(BaseAgent):
             system_prompt="You are the Cinematic & Deep Research Agent. You interface with NotebookLM and the broader internet via the custom AI Browser API to digest source material, synthesize research, and assist in planning video structures."
         )
         # Override default for heavy analytical loads
-        self.model_name = "anthropic/claude-3.5-sonnet"
+        if os.getenv("OPENROUTER_API_KEY"):
+            self.model_name = "openrouter/anthropic/claude-3.5-sonnet"
+        elif os.getenv("ANTHROPIC_API_KEY"):
+            self.model_name = "claude-3-5-sonnet-20240620"
+        elif os.getenv("OPENAI_API_KEY"):
+            self.model_name = "gpt-4o"
+        elif os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+            self.model_name = "gemini/gemini-1.5-pro"
         self.browser = BrowserToolkit()
         
     async def process(self, request: AgentRequest) -> AgentResponse:
