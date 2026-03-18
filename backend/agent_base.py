@@ -9,28 +9,35 @@ class BaseAgent:
     def __init__(self, name: str, system_prompt: str):
         self.name = name
         self.system_prompt = system_prompt
-        # Support local Ollama or OpenAI
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        if api_key:
-            self.client = AsyncOpenAI(api_key=api_key)
-            self.model_name = "gpt-4o"
+        # OpenRouter Integration
+        self.api_key = os.getenv("OPENROUTER_API_KEY", "")
+        
+        # We will use OpenRouter via the official OpenAI python package
+        # OpenRouter's base URL is https://openrouter.ai/api/v1
+        if self.api_key:
+            self.client = AsyncOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=self.api_key,
+            )
+            # Default to a high tier price/performance model unless overridden
+            self.model_name = "anthropic/claude-3-haiku" 
         else:
-            # Drop back to local Ollama. Ensure Ollama is running (`ollama serve`)
+            # Fallback to local Ollama ONLY if OpenRouter key is missing
             self.client = AsyncOpenAI(
                 base_url="http://localhost:11434/v1",
-                api_key="ollama"  # required but unused
+                api_key="ollama" 
             )
-            self.model_name = "llama3" # A safe default for local generation
+            self.model_name = "llama3"
 
     async def process(self, request: AgentRequest) -> AgentResponse:
         """
         Process user input and application context to generate an agent-specific response.
         This provides a default implementation that can be overridden by subclasses.
         """
-        if not self.client:
+        if not self.api_key and self.model_name != "llama3":
            return AgentResponse(
                agent_name=self.name, 
-               content="Failed to initialize AI client. Check your API settings.",
+               content="OPENROUTER_API_KEY is not configured.",
                confidence=0.0
            )
 

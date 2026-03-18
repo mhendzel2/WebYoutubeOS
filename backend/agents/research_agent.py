@@ -9,6 +9,8 @@ class ResearchAgent(BaseAgent):
             name="Deep Research",
             system_prompt="You are the Cinematic & Deep Research Agent. You interface with NotebookLM and the broader internet via the custom AI Browser API to digest source material, synthesize research, and assist in planning video structures."
         )
+        # Override default for heavy analytical loads
+        self.model_name = "anthropic/claude-3.5-sonnet"
         self.browser = BrowserToolkit()
         
     async def process(self, request: AgentRequest) -> AgentResponse:

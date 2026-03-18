@@ -6,5 +6,7 @@ class ScriptwriterAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="Scriptwriter",
-            system_prompt="You are the Scriptwriter Agent for YouTube and Web Management OS. You write high-retention, engaging YouTube video scripts and SEO-optimized website articles. You always adhere strictly to the guidelines passed by the Brand Coordinator."
+            system_prompt="You are the Scriptwriter Agent. You generate complete, engaging YouTube scripts and SEO-optimized website blog drafts based on rough outlines provided by the user."
         )
+        # Override default to use a high-performance OpenRouter model for dense writing tasks
+        self.model_name = "anthropic/claude-3.5-sonnet"
